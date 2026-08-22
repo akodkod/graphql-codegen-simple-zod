@@ -60,6 +60,8 @@ const schemaSource = /* GraphQL */ `
     id: ID!
     matrix: [[Int!]!]!
     name: String
+    node: Node
+    posts: [Post!]!
     result: SearchResult
     role: Role!
     tags: [String]
@@ -152,6 +154,33 @@ describe("generation", () => {
     expect(output).toContain("name: z.string().min(1).nullable(),");
     expect(output).toContain("clientMutationId: z.string().min(1).nullable().optional(),");
   });
+
+  test("omits composite output fields when relations are disabled", async () => {
+    const output = await generate(schema, { includeRelations: false, includeTypename: true });
+
+    expect(output).toContain("export const PostSchema = z.object({");
+    expect(output).toContain("export const UserSchema = z.object({");
+    expect(output).toContain('__typename: z.literal("User"),');
+    expect(output).toContain("id: z.string(),");
+    expect(output).toContain("role: RoleSchema,");
+    expect(output).toContain("get nested() {");
+    expect(output).toContain("get settings() {");
+    expect(output).not.toContain("get friend() {");
+    expect(output).not.toContain("node: z.unknown().nullable(),");
+    expect(output).not.toContain("get posts() {");
+    expect(output).not.toContain("result: z.unknown().nullable(),");
+  });
+
+  test("includes relations by default and when explicitly enabled", async () => {
+    const defaultOutput = await generate();
+    const explicitOutput = await generate(schema, { includeRelations: true });
+
+    expect(explicitOutput).toBe(defaultOutput);
+    expect(defaultOutput).toContain("get friend() {");
+    expect(defaultOutput).toContain("node: z.unknown().nullable(),");
+    expect(defaultOutput).toContain("get posts() {");
+    expect(defaultOutput).toContain("result: z.unknown().nullable(),");
+  });
 });
 
 describe("runtime schemas", () => {
@@ -165,6 +194,8 @@ describe("runtime schemas", () => {
       role: "ADMIN",
       tags: ["one", null],
       friend: null,
+      node: null,
+      posts: [],
     };
 
     expect(generated.UserSchema?.parse(user)).toEqual(user);
@@ -197,6 +228,8 @@ describe("runtime schemas", () => {
       role: "USER",
       tags: null,
       friend: null,
+      node: null,
+      posts: [],
     };
 
     expect(generated.UserSchema?.parse(user)).toEqual(user);
@@ -217,6 +250,15 @@ describe("validation", () => {
         [],
       ),
     ).toThrow('"includeTypename" must be a boolean');
+    expect(() =>
+      validate(
+        schema,
+        [],
+        { includeRelations: "yes" } as unknown as BetterZodPluginConfig,
+        "schemas.ts",
+        [],
+      ),
+    ).toThrow('"includeRelations" must be a boolean');
     expect(() => validate(schema, [], { scalarSchemas: { JSON: "" } }, "schemas.ts", [])).toThrow(
       '"scalarSchemas.JSON" must be a non-empty string',
     );

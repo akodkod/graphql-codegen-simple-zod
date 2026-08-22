@@ -24,6 +24,7 @@ export interface BetterZodPluginConfig {
   schemaNameSuffix?: string;
   includeTypename?: boolean;
   includeClientMutationId?: boolean;
+  includeRelations?: boolean;
   scalarSchemas?: Record<string, string>;
 }
 
@@ -32,6 +33,7 @@ interface NormalizedConfig {
   schemaNameSuffix: string;
   includeTypename: boolean;
   includeClientMutationId: boolean;
+  includeRelations: boolean;
   scalarSchemas: Record<string, string>;
 }
 
@@ -100,6 +102,7 @@ function normalizeConfig(config: BetterZodPluginConfig | null | undefined): Norm
     schemaNameSuffix: config?.schemaNameSuffix ?? "Schema",
     includeTypename: config?.includeTypename ?? false,
     includeClientMutationId: config?.includeClientMutationId ?? false,
+    includeRelations: config?.includeRelations ?? true,
     scalarSchemas: config?.scalarSchemas ?? {},
   };
 }
@@ -146,6 +149,7 @@ function assertConfig(
   assertOptionalType(rawConfig, "schemaNameSuffix", "string");
   assertOptionalType(rawConfig, "includeTypename", "boolean");
   assertOptionalType(rawConfig, "includeClientMutationId", "boolean");
+  assertOptionalType(rawConfig, "includeRelations", "boolean");
 
   if (rawConfig?.scalarSchemas !== undefined && !isPlainObject(rawConfig.scalarSchemas)) {
     throw new Error('"scalarSchemas" must be an object of Zod expressions.');
@@ -342,6 +346,13 @@ function referencesGeneratedObject(type: GraphQLType, names: ReadonlyMap<string,
   return names.has(type.name) && (isObjectType(type) || isInputObjectType(type));
 }
 
+function referencesCompositeType(type: GraphQLType): boolean {
+  if (isNonNullType(type) || isListType(type)) {
+    return referencesCompositeType(type.ofType);
+  }
+  return isObjectType(type) || isInterfaceType(type) || isUnionType(type);
+}
+
 function renderField(fieldName: string, expression: string, useGetter: boolean): string[] {
   if (!useGetter) return [`  ${fieldName}: ${expression},`];
   return [`  get ${fieldName}() {`, `    return ${expression};`, "  },"];
@@ -385,6 +396,9 @@ function renderObject(
   }
 
   for (const field of Object.values(type.getFields())) {
+    if (!config.includeRelations && referencesCompositeType(field.type)) {
+      continue;
+    }
     if (!config.includeClientMutationId && field.name === "clientMutationId") {
       continue;
     }
