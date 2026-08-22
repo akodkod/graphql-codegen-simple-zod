@@ -181,6 +181,46 @@ describe("generation", () => {
     expect(defaultOutput).toContain("get posts() {");
     expect(defaultOutput).toContain("result: z.unknown().nullable(),");
   });
+
+  test("optionally omits Relay connection and edge object schemas", async () => {
+    const relaySchema = buildSchema(/* GraphQL */ `
+      type User {
+        friends: UserConnection
+        id: ID!
+      }
+
+      type UserConnection {
+        edges: [UserEdge!]!
+      }
+
+      type UserEdge {
+        node: User
+      }
+
+      type EdgeCase {
+        value: String
+      }
+
+      input PaginationEdge {
+        cursor: String
+      }
+
+      type Query {
+        viewer: User
+      }
+    `);
+
+    const defaultOutput = await generate(relaySchema);
+    const output = await generate(relaySchema, { includeConnectionAndEdgeTypes: false });
+
+    expect(defaultOutput).toContain("export const UserConnectionSchema = z.object({");
+    expect(defaultOutput).toContain("export const UserEdgeSchema = z.object({");
+    expect(output).not.toContain("export const UserConnectionSchema");
+    expect(output).not.toContain("export const UserEdgeSchema");
+    expect(output).toContain("friends: z.unknown().nullable(),");
+    expect(output).toContain("export const EdgeCaseSchema = z.object({");
+    expect(output).toContain("export const PaginationEdgeSchema = z.object({");
+  });
 });
 
 describe("runtime schemas", () => {
@@ -259,6 +299,15 @@ describe("validation", () => {
         [],
       ),
     ).toThrow('"includeRelations" must be a boolean');
+    expect(() =>
+      validate(
+        schema,
+        [],
+        { includeConnectionAndEdgeTypes: "no" } as unknown as BetterZodPluginConfig,
+        "schemas.ts",
+        [],
+      ),
+    ).toThrow('"includeConnectionAndEdgeTypes" must be a boolean');
     expect(() => validate(schema, [], { scalarSchemas: { JSON: "" } }, "schemas.ts", [])).toThrow(
       '"scalarSchemas.JSON" must be a non-empty string',
     );

@@ -30,6 +30,7 @@ const config: CodegenConfig = {
             includeTypename: false,
             includeClientMutationId: false,
             includeRelations: true,
+            includeConnectionAndEdgeTypes: true,
             scalarSchemas: {
               JSON: "z.unknown()",
               DateTime: "z.iso.datetime()",
@@ -55,6 +56,7 @@ generates:
       - graphql-codegen-better-zod:
           includeTypename: true
           includeRelations: false
+          includeConnectionAndEdgeTypes: false
           scalarSchemas:
             JSON: z.unknown()
             DateTime: z.iso.datetime()
@@ -68,14 +70,15 @@ pnpm graphql-codegen --config codegen.ts
 
 ## Options
 
-| Option                    | Type                     | Default    | Description                                                               |
-| ------------------------- | ------------------------ | ---------- | ------------------------------------------------------------------------- |
-| `schemaNamePrefix`        | `string`                 | `""`       | Prepends text to every generated schema name.                             |
-| `schemaNameSuffix`        | `string`                 | `"Schema"` | Appends text to every generated schema name.                              |
-| `includeTypename`         | `boolean`                | `false`    | Adds a required concrete `__typename` literal to object schemas.          |
-| `includeClientMutationId` | `boolean`                | `false`    | Includes fields whose exact name is `clientMutationId`.                   |
-| `includeRelations`        | `boolean`                | `true`     | Includes object, interface, and union fields in generated object schemas. |
-| `scalarSchemas`           | `Record<string, string>` | `{}`       | Overrides built-in or custom scalar schemas with trusted Zod expressions. |
+| Option                          | Type                     | Default    | Description                                                                 |
+| ------------------------------- | ------------------------ | ---------- | --------------------------------------------------------------------------- |
+| `schemaNamePrefix`              | `string`                 | `""`       | Prepends text to every generated schema name.                               |
+| `schemaNameSuffix`              | `string`                 | `"Schema"` | Appends text to every generated schema name.                                |
+| `includeTypename`               | `boolean`                | `false`    | Adds a required concrete `__typename` literal to object schemas.            |
+| `includeClientMutationId`       | `boolean`                | `false`    | Includes fields whose exact name is `clientMutationId`.                     |
+| `includeRelations`              | `boolean`                | `true`     | Includes object, interface, and union fields in generated object schemas.   |
+| `includeConnectionAndEdgeTypes` | `boolean`                | `true`     | Generates object schemas whose GraphQL names end in `Connection` or `Edge`. |
+| `scalarSchemas`                 | `Record<string, string>` | `{}`       | Overrides built-in or custom scalar schemas with trusted Zod expressions.   |
 
 The built-in scalar mappings are:
 
@@ -137,6 +140,8 @@ export const UserSchema = z.object({
 Recursive object and input references use Zod 4 shape getters. Nullable output fields accept `null` but remain required. Nullable input fields accept `null` or omission, and GraphQL input defaults are emitted with `.default(...)`.
 
 Set `includeRelations: false` to omit composite output fields from object schemas. This includes object, interface, and union fields, including self-references and fields wrapped in lists or non-null types. Scalar and enum fields remain, input object fields are unaffected, and schemas for related object types are still generated.
+
+Set `includeConnectionAndEdgeTypes: false` to omit Relay-style object schemas whose GraphQL type names end in `Connection` or `Edge`. Input object types are unaffected. Fields that reference an omitted type remain in other generated object schemas and use `z.unknown()` while preserving their list and nullability wrappers.
 
 ## Scope and limitations
 

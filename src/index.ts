@@ -25,6 +25,7 @@ export interface BetterZodPluginConfig {
   includeTypename?: boolean;
   includeClientMutationId?: boolean;
   includeRelations?: boolean;
+  includeConnectionAndEdgeTypes?: boolean;
   scalarSchemas?: Record<string, string>;
 }
 
@@ -34,6 +35,7 @@ interface NormalizedConfig {
   includeTypename: boolean;
   includeClientMutationId: boolean;
   includeRelations: boolean;
+  includeConnectionAndEdgeTypes: boolean;
   scalarSchemas: Record<string, string>;
 }
 
@@ -103,11 +105,12 @@ function normalizeConfig(config: BetterZodPluginConfig | null | undefined): Norm
     includeTypename: config?.includeTypename ?? false,
     includeClientMutationId: config?.includeClientMutationId ?? false,
     includeRelations: config?.includeRelations ?? true,
+    includeConnectionAndEdgeTypes: config?.includeConnectionAndEdgeTypes ?? true,
     scalarSchemas: config?.scalarSchemas ?? {},
   };
 }
 
-function generatedTypes(schema: GraphQLSchema): GraphQLNamedType[] {
+function generatedTypes(schema: GraphQLSchema, config: NormalizedConfig): GraphQLNamedType[] {
   const operationTypes = new Set<GraphQLNamedType>();
   for (const type of [
     schema.getQueryType(),
@@ -121,6 +124,12 @@ function generatedTypes(schema: GraphQLSchema): GraphQLNamedType[] {
     .filter((type) => !type.name.startsWith("__"))
     .filter((type) => !operationTypes.has(type))
     .filter((type) => isEnumType(type) || isInputObjectType(type) || isObjectType(type))
+    .filter(
+      (type) =>
+        config.includeConnectionAndEdgeTypes ||
+        !isObjectType(type) ||
+        (!type.name.endsWith("Connection") && !type.name.endsWith("Edge")),
+    )
     .sort((left, right) => {
       const kindOrder = typeOrder(left) - typeOrder(right);
       return kindOrder || left.name.localeCompare(right.name);
@@ -150,6 +159,7 @@ function assertConfig(
   assertOptionalType(rawConfig, "includeTypename", "boolean");
   assertOptionalType(rawConfig, "includeClientMutationId", "boolean");
   assertOptionalType(rawConfig, "includeRelations", "boolean");
+  assertOptionalType(rawConfig, "includeConnectionAndEdgeTypes", "boolean");
 
   if (rawConfig?.scalarSchemas !== undefined && !isPlainObject(rawConfig.scalarSchemas)) {
     throw new Error('"scalarSchemas" must be an object of Zod expressions.');
@@ -166,7 +176,7 @@ function assertConfig(
   const config = normalizeConfig(rawConfig);
   const usedNames = new Map<string, string>();
 
-  for (const type of generatedTypes(schema)) {
+  for (const type of generatedTypes(schema, config)) {
     const name = schemaName(type.name, config);
     if (!IDENTIFIER_PATTERN.test(name) || RESERVED_IDENTIFIERS.has(name)) {
       throw new Error(
@@ -414,7 +424,7 @@ function renderObject(
 }
 
 function generate(schema: GraphQLSchema, config: NormalizedConfig): string {
-  const types = generatedTypes(schema);
+  const types = generatedTypes(schema, config);
   const names = new Map(types.map((type) => [type.name, schemaName(type.name, config)]));
   const definitions = types.map((type) => {
     const name = names.get(type.name);
