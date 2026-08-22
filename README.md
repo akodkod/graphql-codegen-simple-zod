@@ -1,19 +1,23 @@
-# graphql-codegen-better-zod
+# graphql-codegen-simple-zod
 
-An ESM [GraphQL Code Generator](https://the-guild.dev/graphql/codegen) plugin that generates [Zod 4](https://zod.dev/) schema constants from GraphQL object types, input objects, and enums.
+A small [GraphQL Code Generator](https://the-guild.dev/graphql/codegen) plugin that creates [Zod 4](https://zod.dev/) schemas for GraphQL objects, inputs, and enums.
 
-## Installation
+## Disclaimer
 
-Install the plugin together with its GraphQL and Zod peer dependencies:
+This project was built for internal company use, and its code was generated using AI. Use it at your own risk.
+
+It is provided as-is. There are no plans to support or maintain this library. If you want to use it, forking the repository and maintaining your own version is recommended.
+
+## Install
 
 ```bash
 pnpm add graphql zod
-pnpm add -D @graphql-codegen/cli graphql-codegen-better-zod
+pnpm add -D @graphql-codegen/cli graphql-codegen-simple-zod
 ```
 
-## Configuration
+## Use
 
-### TypeScript
+Add the plugin to your GraphQL Code Generator config:
 
 ```ts
 import type { CodegenConfig } from "@graphql-codegen/cli";
@@ -24,17 +28,12 @@ const config: CodegenConfig = {
     "./src/generated/schemas.ts": {
       plugins: [
         {
-          "graphql-codegen-better-zod": {
-            schemaNamePrefix: "",
-            schemaNameSuffix: "Schema",
+          "graphql-codegen-simple-zod": {
             includeTypename: false,
-            includeClientMutationId: false,
             includeRelations: true,
-            includeConnectionAndEdgeTypes: true,
             scalarSchemas: {
-              JSON: "z.unknown()",
               DateTime: "z.iso.datetime()",
-              ISO8601DateTime: "z.date()",
+              JSON: "z.unknown()",
             },
           },
         },
@@ -46,23 +45,7 @@ const config: CodegenConfig = {
 export default config;
 ```
 
-### YAML
-
-```yaml
-schema: ./schema.graphql
-generates:
-  ./src/generated/schemas.ts:
-    plugins:
-      - graphql-codegen-better-zod:
-          includeTypename: true
-          includeRelations: false
-          includeConnectionAndEdgeTypes: false
-          scalarSchemas:
-            JSON: z.unknown()
-            DateTime: z.iso.datetime()
-```
-
-Run GraphQL Code Generator as usual:
+Then run GraphQL Code Generator:
 
 ```bash
 pnpm graphql-codegen --config codegen.ts
@@ -70,92 +53,21 @@ pnpm graphql-codegen --config codegen.ts
 
 ## Options
 
-| Option                          | Type                     | Default    | Description                                                                 |
-| ------------------------------- | ------------------------ | ---------- | --------------------------------------------------------------------------- |
-| `schemaNamePrefix`              | `string`                 | `""`       | Prepends text to every generated schema name.                               |
-| `schemaNameSuffix`              | `string`                 | `"Schema"` | Appends text to every generated schema name.                                |
-| `includeTypename`               | `boolean`                | `false`    | Adds a required concrete `__typename` literal to object schemas.            |
-| `includeClientMutationId`       | `boolean`                | `false`    | Includes fields whose exact name is `clientMutationId`.                     |
-| `includeRelations`              | `boolean`                | `true`     | Includes object, interface, and union fields in generated object schemas.   |
-| `includeConnectionAndEdgeTypes` | `boolean`                | `true`     | Generates object schemas whose GraphQL names end in `Connection` or `Edge`. |
-| `scalarSchemas`                 | `Record<string, string>` | `{}`       | Overrides built-in or custom scalar schemas with trusted Zod expressions.   |
+| Option                          | Default    | What it does                                                  |
+| ------------------------------- | ---------- | ------------------------------------------------------------- |
+| `schemaNamePrefix`              | `""`       | Adds a prefix to generated schema names.                      |
+| `schemaNameSuffix`              | `"Schema"` | Adds a suffix to generated schema names.                      |
+| `includeTypename`               | `false`    | Adds a required `__typename` literal.                         |
+| `includeClientMutationId`       | `false`    | Includes `clientMutationId` fields.                           |
+| `includeRelations`              | `true`     | Includes object, interface, and union fields.                 |
+| `includeConnectionAndEdgeTypes` | `true`     | Generates Relay-style `Connection` and `Edge` object schemas. |
+| `scalarSchemas`                 | `{}`       | Maps scalar names to Zod expressions.                         |
 
-The built-in scalar mappings are:
+Built-in scalars map to their usual Zod types. Unknown custom scalars use `z.unknown()` unless they are configured in `scalarSchemas`.
 
-| GraphQL scalar | Zod schema         |
-| -------------- | ------------------ |
-| `String`       | `z.string()`       |
-| `ID`           | `z.string()`       |
-| `Int`          | `z.number().int()` |
-| `Float`        | `z.number()`       |
-| `Boolean`      | `z.boolean()`      |
-
-Custom scalars not present in `scalarSchemas` use `z.unknown()`.
-
-## Generated output
-
-Given:
-
-```graphql
-enum Role {
-  ADMIN
-  USER
-}
-
-input UserFilter {
-  limit: Int! = 10
-  role: Role
-}
-
-type User {
-  id: ID!
-  friend: User
-  name: String
-  role: Role!
-}
-```
-
-the plugin generates:
-
-```ts
-import { z } from "zod";
-
-export const RoleSchema = z.enum(["ADMIN", "USER"]);
-
-export const UserFilterSchema = z.object({
-  limit: z.number().int().default(10),
-  role: RoleSchema.nullable().optional(),
-});
-
-export const UserSchema = z.object({
-  get friend() {
-    return UserSchema.nullable();
-  },
-  id: z.string(),
-  name: z.string().nullable(),
-  role: RoleSchema,
-});
-```
-
-Recursive object and input references use Zod 4 shape getters. Nullable output fields accept `null` but remain required. Nullable input fields accept `null` or omission, and GraphQL input defaults are emitted with `.default(...)`.
-
-Set `includeRelations: false` to omit composite output fields from object schemas. This includes object, interface, and union fields, including self-references and fields wrapped in lists or non-null types. Scalar and enum fields remain, input object fields are unaffected, and schemas for related object types are still generated.
-
-Set `includeConnectionAndEdgeTypes: false` to omit Relay-style object schemas whose GraphQL type names end in `Connection` or `Edge`. Input object types are unaffected. Fields that reference an omitted type remain in other generated object schemas and use `z.unknown()` while preserving their list and nullability wrappers.
-
-## Scope and limitations
-
-- Query, Mutation, and Subscription root types are not generated.
-- Introspection types, scalar declarations, interfaces, and unions are not generated.
-- Fields that reference interfaces or unions use `z.unknown()` while preserving list and nullability wrappers.
-- Schemas describe complete GraphQL object types, not operation-specific selection results.
-- Directives, descriptions, operation documents, and GraphQL's singleton-to-list input coercion are not reflected.
-- `scalarSchemas` values are inserted verbatim and must be valid expressions using the generated `z` import.
-- GraphQL input defaults must be representable as GraphQL literals or supported JavaScript primitives, arrays, and plain objects.
+Query, Mutation, Subscription, interface, and union schemas are not generated. References to interfaces or unions use `z.unknown()`.
 
 ## Development
-
-The project uses [Vite+](https://viteplus.dev/guide/) for dependency management, checks, tests, and packaging.
 
 ```bash
 vp install

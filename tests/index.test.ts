@@ -15,7 +15,7 @@ import {
 } from "graphql";
 import { describe, expect, test } from "vite-plus/test";
 import type { ZodType } from "zod";
-import { plugin, validate, type BetterZodPluginConfig } from "../src/index.ts";
+import { plugin, validate, type SimpleZodPluginConfig } from "../src/index.ts";
 
 const schemaSource = /* GraphQL */ `
   scalar DateTime
@@ -80,7 +80,7 @@ const schema = buildSchema(schemaSource);
 
 async function generate(
   graphQLSchema: GraphQLSchemaType = schema,
-  config: BetterZodPluginConfig = {},
+  config: SimpleZodPluginConfig = {},
 ): Promise<string> {
   const output = await plugin(graphQLSchema, [], config);
   if (typeof output !== "string") {
@@ -90,7 +90,7 @@ async function generate(
 }
 
 async function importGenerated(source: string): Promise<Record<string, ZodType>> {
-  const directory = await mkdtemp(join(tmpdir(), "better-zod-test-"));
+  const directory = await mkdtemp(join(tmpdir(), "simple-zod-test-"));
   const filename = join(directory, "schemas.mjs");
   const zodUrl = import.meta.resolve("zod");
   const executableSource = source.replace('from "zod"', `from ${JSON.stringify(zodUrl)}`);
@@ -285,7 +285,7 @@ describe("validation", () => {
       validate(
         schema,
         [],
-        { includeTypename: "yes" } as unknown as BetterZodPluginConfig,
+        { includeTypename: "yes" } as unknown as SimpleZodPluginConfig,
         "schemas.ts",
         [],
       ),
@@ -294,7 +294,7 @@ describe("validation", () => {
       validate(
         schema,
         [],
-        { includeRelations: "yes" } as unknown as BetterZodPluginConfig,
+        { includeRelations: "yes" } as unknown as SimpleZodPluginConfig,
         "schemas.ts",
         [],
       ),
@@ -303,7 +303,7 @@ describe("validation", () => {
       validate(
         schema,
         [],
-        { includeConnectionAndEdgeTypes: "no" } as unknown as BetterZodPluginConfig,
+        { includeConnectionAndEdgeTypes: "no" } as unknown as SimpleZodPluginConfig,
         "schemas.ts",
         [],
       ),

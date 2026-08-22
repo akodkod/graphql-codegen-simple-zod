@@ -19,7 +19,7 @@ import {
   type GraphQLType,
 } from "graphql";
 
-export interface BetterZodPluginConfig {
+export interface SimpleZodPluginConfig {
   schemaNamePrefix?: string;
   schemaNameSuffix?: string;
   includeTypename?: boolean;
@@ -98,7 +98,7 @@ const RESERVED_IDENTIFIERS = new Set([
 
 const IDENTIFIER_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 
-function normalizeConfig(config: BetterZodPluginConfig | null | undefined): NormalizedConfig {
+function normalizeConfig(config: SimpleZodPluginConfig | null | undefined): NormalizedConfig {
   return {
     schemaNamePrefix: config?.schemaNamePrefix ?? "",
     schemaNameSuffix: config?.schemaNameSuffix ?? "Schema",
@@ -148,10 +148,10 @@ function schemaName(typeName: string, config: NormalizedConfig): string {
 
 function assertConfig(
   schema: GraphQLSchema,
-  rawConfig: BetterZodPluginConfig | null | undefined,
+  rawConfig: SimpleZodPluginConfig | null | undefined,
 ): NormalizedConfig {
   if (rawConfig !== undefined && rawConfig !== null && !isPlainObject(rawConfig)) {
-    throw new Error("Better Zod plugin configuration must be an object.");
+    throw new Error("Simple Zod plugin configuration must be an object.");
   }
 
   assertOptionalType(rawConfig, "schemaNamePrefix", "string");
@@ -202,8 +202,8 @@ function assertConfig(
 }
 
 function assertOptionalType(
-  config: BetterZodPluginConfig | null | undefined,
-  key: keyof BetterZodPluginConfig,
+  config: SimpleZodPluginConfig | null | undefined,
+  key: keyof SimpleZodPluginConfig,
   expected: "boolean" | "string",
 ): void {
   const value = config?.[key];
@@ -440,10 +440,10 @@ function generate(schema: GraphQLSchema, config: NormalizedConfig): string {
   return ['import { z } from "zod";', ...definitions].join("\n\n");
 }
 
-export const plugin: PluginFunction<BetterZodPluginConfig> = (schema, _documents, rawConfig) =>
+export const plugin: PluginFunction<SimpleZodPluginConfig> = (schema, _documents, rawConfig) =>
   generate(schema, assertConfig(schema, rawConfig));
 
-export const validate: PluginValidateFn<BetterZodPluginConfig> = (
+export const validate: PluginValidateFn<SimpleZodPluginConfig> = (
   schema,
   _documents,
   rawConfig,
