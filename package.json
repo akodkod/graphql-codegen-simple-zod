@@ -48,10 +48,15 @@
     "zod": "^4.4.3"
   },
   "devEngines": {
-    "packageManager": {
-      "name": "pnpm",
-      "version": "11.22.0",
-      "onFail": "download"
-    }
+    "packageManager": [
+      {
+        "name": "pnpm",
+        "version": "11.22.0",
+        "onFail": "download"
+      },
+      {
+        "name": "npm"
+      }
+    ]
   }
 }
