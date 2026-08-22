@@ -127,7 +127,7 @@ describe("generation", () => {
       'return SettingsInputSchema.nullable().default({ "active": true, "labels": ["featured"] });',
     );
     expect(output).toContain("matrix: z.array(z.array(z.number().int())),");
-    expect(output).toContain("result: z.unknown().nullable(),");
+    expect(output).not.toContain("result: z.unknown().nullable(),");
     expect(output).not.toContain("export const NodeSchema");
     expect(output).not.toContain("export const SearchResultSchema");
     expect(output).not.toContain("export const QuerySchema");
@@ -155,9 +155,14 @@ describe("generation", () => {
     expect(output).toContain("clientMutationId: z.string().min(1).nullable().optional(),");
   });
 
-  test("omits composite output fields when relations are disabled", async () => {
-    const output = await generate(schema, { includeRelations: false, includeTypename: true });
+  test("omits composite output fields by default and when explicitly disabled", async () => {
+    const output = await generate(schema, { includeTypename: true });
+    const explicitOutput = await generate(schema, {
+      includeRelations: false,
+      includeTypename: true,
+    });
 
+    expect(explicitOutput).toBe(output);
     expect(output).toContain("export const PostSchema = z.object({");
     expect(output).toContain("export const UserSchema = z.object({");
     expect(output).toContain('__typename: z.literal("User"),');
@@ -171,18 +176,16 @@ describe("generation", () => {
     expect(output).not.toContain("result: z.unknown().nullable(),");
   });
 
-  test("includes relations by default and when explicitly enabled", async () => {
-    const defaultOutput = await generate();
-    const explicitOutput = await generate(schema, { includeRelations: true });
+  test("includes relations when explicitly enabled", async () => {
+    const output = await generate(schema, { includeRelations: true });
 
-    expect(explicitOutput).toBe(defaultOutput);
-    expect(defaultOutput).toContain("get friend() {");
-    expect(defaultOutput).toContain("node: z.unknown().nullable(),");
-    expect(defaultOutput).toContain("get posts() {");
-    expect(defaultOutput).toContain("result: z.unknown().nullable(),");
+    expect(output).toContain("get friend() {");
+    expect(output).toContain("node: z.unknown().nullable(),");
+    expect(output).toContain("get posts() {");
+    expect(output).toContain("result: z.unknown().nullable(),");
   });
 
-  test("optionally omits Relay connection and edge object schemas", async () => {
+  test("omits Relay connection and edge object schemas by default", async () => {
     const relaySchema = buildSchema(/* GraphQL */ `
       type User {
         friends: UserConnection
@@ -210,22 +213,30 @@ describe("generation", () => {
       }
     `);
 
-    const defaultOutput = await generate(relaySchema);
-    const output = await generate(relaySchema, { includeConnectionAndEdgeTypes: false });
+    const output = await generate(relaySchema, { includeRelations: true });
+    const explicitlyDisabledOutput = await generate(relaySchema, {
+      includeConnectionAndEdgeTypes: false,
+      includeRelations: true,
+    });
+    const explicitOutput = await generate(relaySchema, {
+      includeConnectionAndEdgeTypes: true,
+      includeRelations: true,
+    });
 
-    expect(defaultOutput).toContain("export const UserConnectionSchema = z.object({");
-    expect(defaultOutput).toContain("export const UserEdgeSchema = z.object({");
+    expect(explicitlyDisabledOutput).toBe(output);
     expect(output).not.toContain("export const UserConnectionSchema");
     expect(output).not.toContain("export const UserEdgeSchema");
     expect(output).toContain("friends: z.unknown().nullable(),");
     expect(output).toContain("export const EdgeCaseSchema = z.object({");
     expect(output).toContain("export const PaginationEdgeSchema = z.object({");
+    expect(explicitOutput).toContain("export const UserConnectionSchema = z.object({");
+    expect(explicitOutput).toContain("export const UserEdgeSchema = z.object({");
   });
 });
 
 describe("runtime schemas", () => {
   test("parses complete objects while enforcing nullable and recursive fields", async () => {
-    const generated = await importGenerated(await generate());
+    const generated = await importGenerated(await generate(schema, { includeRelations: true }));
     const user = {
       id: "user-1",
       matrix: [[1, 2]],
@@ -258,7 +269,9 @@ describe("runtime schemas", () => {
   });
 
   test("requires the configured concrete typename", async () => {
-    const generated = await importGenerated(await generate(schema, { includeTypename: true }));
+    const generated = await importGenerated(
+      await generate(schema, { includeRelations: true, includeTypename: true }),
+    );
     const user = {
       __typename: "User",
       id: "user-1",

@@ -59,8 +59,8 @@ pnpm graphql-codegen --config codegen.ts
 | `schemaNameSuffix`              | `"Schema"` | Adds a suffix to generated schema names.                      |
 | `includeTypename`               | `false`    | Adds a required `__typename` literal.                         |
 | `includeClientMutationId`       | `false`    | Includes `clientMutationId` fields.                           |
-| `includeRelations`              | `true`     | Includes object, interface, and union fields.                 |
-| `includeConnectionAndEdgeTypes` | `true`     | Generates Relay-style `Connection` and `Edge` object schemas. |
+| `includeRelations`              | `false`    | Includes object, interface, and union fields.                 |
+| `includeConnectionAndEdgeTypes` | `false`    | Generates Relay-style `Connection` and `Edge` object schemas. |
 | `scalarSchemas`                 | `{}`       | Maps scalar names to Zod expressions.                         |
 
 Built-in scalars map to their usual Zod types. Unknown custom scalars use `z.unknown()` unless they are configured in `scalarSchemas`.

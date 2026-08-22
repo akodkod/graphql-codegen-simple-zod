@@ -104,8 +104,8 @@ function normalizeConfig(config: SimpleZodPluginConfig | null | undefined): Norm
     schemaNameSuffix: config?.schemaNameSuffix ?? "Schema",
     includeTypename: config?.includeTypename ?? false,
     includeClientMutationId: config?.includeClientMutationId ?? false,
-    includeRelations: config?.includeRelations ?? true,
-    includeConnectionAndEdgeTypes: config?.includeConnectionAndEdgeTypes ?? true,
+    includeRelations: config?.includeRelations ?? false,
+    includeConnectionAndEdgeTypes: config?.includeConnectionAndEdgeTypes ?? false,
     scalarSchemas: config?.scalarSchemas ?? {},
   };
 }
