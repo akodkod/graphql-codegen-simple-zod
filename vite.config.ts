@@ -9,6 +9,13 @@ export default defineConfig({
       tsgo: true,
     },
     exports: true,
+    publint: {
+      level: "error",
+    },
+    attw: {
+      profile: "esm-only",
+      level: "error",
+    },
   },
   lint: {
     options: {
