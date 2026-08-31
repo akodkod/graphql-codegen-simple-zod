@@ -155,6 +155,14 @@ describe("generation", () => {
     expect(output).toContain("clientMutationId: z.string().min(1).nullable().optional(),");
   });
 
+  test("uses runtime TypeScript enum values when configured", async () => {
+    const output = await generate(schema, { useTypeScriptEnums: true });
+
+    expect(output).toContain("export const RoleSchema = z.enum(Role);");
+    expect(output).not.toContain('z.enum(["ADMIN", "USER"])');
+    expect(output).toContain("role: RoleSchema,");
+  });
+
   test("omits composite output fields by default and when explicitly disabled", async () => {
     const output = await generate(schema, { includeTypename: true });
     const explicitOutput = await generate(schema, {
@@ -290,6 +298,17 @@ describe("runtime schemas", () => {
     const { __typename: _typename, ...withoutTypename } = user;
     expect(() => generated.UserSchema?.parse(withoutTypename)).toThrow();
   });
+
+  test("parses values from a configured runtime TypeScript enum", async () => {
+    const source = [
+      'const Role = { Admin: "ADMIN", User: "USER" };',
+      await generate(schema, { useTypeScriptEnums: true }),
+    ].join("\n");
+    const generated = await importGenerated(source);
+
+    expect(generated.RoleSchema?.parse("ADMIN")).toBe("ADMIN");
+    expect(() => generated.RoleSchema?.parse("UNKNOWN")).toThrow();
+  });
 });
 
 describe("validation", () => {
@@ -321,6 +340,15 @@ describe("validation", () => {
         [],
       ),
     ).toThrow('"includeConnectionAndEdgeTypes" must be a boolean');
+    expect(() =>
+      validate(
+        schema,
+        [],
+        { useTypeScriptEnums: "yes" } as unknown as SimpleZodPluginConfig,
+        "schemas.ts",
+        [],
+      ),
+    ).toThrow('"useTypeScriptEnums" must be a boolean');
     expect(() => validate(schema, [], { scalarSchemas: { JSON: "" } }, "schemas.ts", [])).toThrow(
       '"scalarSchemas.JSON" must be a non-empty string',
     );
@@ -334,6 +362,12 @@ describe("validation", () => {
     await expect(generate(collisionSchema, { schemaNameSuffix: "" })).rejects.toThrow(
       "conflicts with the Zod import",
     );
+  });
+
+  test("rejects runtime TypeScript enum name collisions", async () => {
+    await expect(
+      generate(schema, { schemaNameSuffix: "", useTypeScriptEnums: true }),
+    ).rejects.toThrow('Generated schema name "Role"');
   });
 
   test("reports unsupported programmatic defaults", async () => {

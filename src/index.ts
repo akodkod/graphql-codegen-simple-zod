@@ -26,6 +26,7 @@ export interface SimpleZodPluginConfig {
   includeClientMutationId?: boolean;
   includeRelations?: boolean;
   includeConnectionAndEdgeTypes?: boolean;
+  useTypeScriptEnums?: boolean;
   scalarSchemas?: Record<string, string>;
 }
 
@@ -36,6 +37,7 @@ interface NormalizedConfig {
   includeClientMutationId: boolean;
   includeRelations: boolean;
   includeConnectionAndEdgeTypes: boolean;
+  useTypeScriptEnums: boolean;
   scalarSchemas: Record<string, string>;
 }
 
@@ -106,6 +108,7 @@ function normalizeConfig(config: SimpleZodPluginConfig | null | undefined): Norm
     includeClientMutationId: config?.includeClientMutationId ?? false,
     includeRelations: config?.includeRelations ?? false,
     includeConnectionAndEdgeTypes: config?.includeConnectionAndEdgeTypes ?? false,
+    useTypeScriptEnums: config?.useTypeScriptEnums ?? false,
     scalarSchemas: config?.scalarSchemas ?? {},
   };
 }
@@ -160,6 +163,7 @@ function assertConfig(
   assertOptionalType(rawConfig, "includeClientMutationId", "boolean");
   assertOptionalType(rawConfig, "includeRelations", "boolean");
   assertOptionalType(rawConfig, "includeConnectionAndEdgeTypes", "boolean");
+  assertOptionalType(rawConfig, "useTypeScriptEnums", "boolean");
 
   if (rawConfig?.scalarSchemas !== undefined && !isPlainObject(rawConfig.scalarSchemas)) {
     throw new Error('"scalarSchemas" must be an object of Zod expressions.');
@@ -175,6 +179,13 @@ function assertConfig(
 
   const config = normalizeConfig(rawConfig);
   const usedNames = new Map<string, string>();
+  const runtimeEnumNames = new Set(
+    config.useTypeScriptEnums
+      ? generatedTypes(schema, config)
+          .filter(isEnumType)
+          .map((type) => type.name)
+      : [],
+  );
 
   for (const type of generatedTypes(schema, config)) {
     const name = schemaName(type.name, config);
@@ -186,6 +197,11 @@ function assertConfig(
     if (name === "z") {
       throw new Error(
         `Generated schema name "z" for GraphQL type "${type.name}" conflicts with the Zod import.`,
+      );
+    }
+    if (runtimeEnumNames.has(name)) {
+      throw new Error(
+        `Generated schema name "${name}" for GraphQL type "${type.name}" conflicts with the runtime TypeScript enum of the same name.`,
       );
     }
 
@@ -368,7 +384,11 @@ function renderField(fieldName: string, expression: string, useGetter: boolean):
   return [`  get ${fieldName}() {`, `    return ${expression};`, "  },"];
 }
 
-function renderEnum(type: GraphQLEnumType, name: string): string {
+function renderEnum(type: GraphQLEnumType, name: string, config: NormalizedConfig): string {
+  if (config.useTypeScriptEnums) {
+    return `export const ${name} = z.enum(${type.name});`;
+  }
+
   const values = type
     .getValues()
     .map((value) => JSON.stringify(value.name))
@@ -429,7 +449,7 @@ function generate(schema: GraphQLSchema, config: NormalizedConfig): string {
   const definitions = types.map((type) => {
     const name = names.get(type.name);
     if (name === undefined) throw new Error(`Missing schema name for ${type.name}.`);
-    if (isEnumType(type)) return renderEnum(type, name);
+    if (isEnumType(type)) return renderEnum(type, name, config);
     if (isInputObjectType(type)) {
       return renderInputObject(type, name, names, config);
     }

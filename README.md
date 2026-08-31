@@ -61,9 +61,25 @@ pnpm graphql-codegen --config codegen.ts
 | `includeClientMutationId`       | `false`    | Includes `clientMutationId` fields.                           |
 | `includeRelations`              | `false`    | Includes object, interface, and union fields.                 |
 | `includeConnectionAndEdgeTypes` | `false`    | Generates Relay-style `Connection` and `Edge` object schemas. |
+| `useTypeScriptEnums`            | `false`    | Passes runtime TypeScript enums to `z.enum`.                  |
 | `scalarSchemas`                 | `{}`       | Maps scalar names to Zod expressions.                         |
 
 Built-in scalars map to their usual Zod types. Unknown custom scalars use `z.unknown()` unless they are configured in `scalarSchemas`.
+
+When `useTypeScriptEnums` is enabled, each TypeScript enum must be available as a runtime value in the generated module. This is compatible with runtime enums and enum-like `as const` objects, but not type-only enum unions such as those generated with `enumsAsTypes: true`.
+
+When generating the enums and schemas into the same file, run the TypeScript plugin first:
+
+```ts
+plugins: [
+  "typescript",
+  {
+    "graphql-codegen-simple-zod": {
+      useTypeScriptEnums: true,
+    },
+  },
+];
+```
 
 Query, Mutation, Subscription, interface, and union schemas are not generated. References to interfaces or unions use `z.unknown()`.
 

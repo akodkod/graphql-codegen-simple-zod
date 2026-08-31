@@ -1,6 +1,6 @@
 {
   "name": "graphql-codegen-simple-zod",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "GraphQL Code Generator plugin that creates Zod schemas from GraphQL types.",
   "keywords": [
     "codegen",
