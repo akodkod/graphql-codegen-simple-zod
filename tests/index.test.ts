@@ -107,6 +107,29 @@ async function importGenerated(source: string): Promise<Record<string, ZodType>>
 }
 
 describe("generation", () => {
+  test("leaves nullable defaults unchanged unless enabled", async () => {
+    expect(await generate(schema, { nullableWithDefaultNull: false })).toBe(await generate());
+  });
+
+  test("adds null defaults to nullable fields and list items when enabled", async () => {
+    const output = await generate(schema, {
+      nullableWithDefaultNull: true,
+      includeRelations: true,
+      scalarSchemas: { DateTime: "z.iso.datetime()" },
+    });
+
+    expect(output).toContain("name: z.string().nullable().default(null),");
+    expect(output).toContain("createdAfter: z.iso.datetime().nullable().default(null),");
+    expect(output).toContain(
+      "flags: z.array(z.boolean().nullable().default(null)).nullable().default(null),",
+    );
+    expect(output).toContain("return FilterInputSchema.nullable().default(null);");
+    expect(output).toContain("return UserSchema.nullable().default(null);");
+    expect(output).toContain("matrix: z.array(z.array(z.number().int())),");
+    expect(output).toContain('role: RoleSchema.nullable().default("USER"),');
+    expect(output).toContain("limit: z.number().int().default(10),");
+  });
+
   test("generates objects, inputs, enums, wrappers, defaults, and recursion", async () => {
     const output = await generate(schema, {
       scalarSchemas: { DateTime: "z.iso.datetime()" },
@@ -243,6 +266,40 @@ describe("generation", () => {
 });
 
 describe("runtime schemas", () => {
+  test("defaults missing nullable fields to null while preserving required fields and explicit defaults", async () => {
+    const generated = await importGenerated(
+      await generate(schema, { nullableWithDefaultNull: true, includeRelations: true }),
+    );
+    const required = { id: "user-1", matrix: [], posts: [], role: "ADMIN" };
+    expect(generated.UserSchema?.parse(required)).toEqual({
+      ...required,
+      friend: null,
+      name: null,
+      node: null,
+      result: null,
+      tags: null,
+    });
+    expect(
+      generated.UserSchema?.parse({ ...required, name: undefined, tags: ["one", null, undefined] }),
+    ).toMatchObject({ name: null, tags: ["one", null, null] });
+    expect(() => generated.UserSchema?.parse({})).toThrow();
+    expect(() => generated.UserSchema?.parse({ ...required, matrix: [[null]] })).toThrow();
+    expect(generated.FilterInputSchema?.parse({})).toEqual({
+      createdAfter: null,
+      flags: null,
+      limit: 10,
+      metadata: null,
+      nested: null,
+      query: null,
+      role: "USER",
+      settings: { active: true, labels: ["featured"] },
+    });
+    expect(generated.FilterInputSchema?.parse({ query: "search", role: null })).toMatchObject({
+      query: "search",
+      role: null,
+    });
+  });
+
   test("parses complete objects while enforcing nullable and recursive fields", async () => {
     const generated = await importGenerated(await generate(schema, { includeRelations: true }));
     const user = {
@@ -312,6 +369,18 @@ describe("runtime schemas", () => {
 });
 
 describe("validation", () => {
+  test("rejects a non-boolean nullableWithDefaultNull option", () => {
+    expect(() =>
+      validate(
+        schema,
+        [],
+        { nullableWithDefaultNull: "true" } as unknown as SimpleZodPluginConfig,
+        "schemas.ts",
+        [],
+      ),
+    ).toThrow('"nullableWithDefaultNull" must be a boolean');
+  });
+
   test("rejects invalid options and generated identifiers", () => {
     expect(() =>
       validate(

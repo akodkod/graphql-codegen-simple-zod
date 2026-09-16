@@ -62,9 +62,12 @@ pnpm graphql-codegen --config codegen.ts
 | `includeRelations`              | `false`    | Includes object, interface, and union fields.                 |
 | `includeConnectionAndEdgeTypes` | `false`    | Generates Relay-style `Connection` and `Edge` object schemas. |
 | `useTypeScriptEnums`            | `false`    | Passes runtime TypeScript enums to `z.enum`.                  |
+| `nullableWithDefaultNull`       | `false`    | Adds `.default(null)` to nullable fields and list items.      |
 | `scalarSchemas`                 | `{}`       | Maps scalar names to Zod expressions.                         |
 
 Built-in scalars map to their usual Zod types. Unknown custom scalars use `z.unknown()` unless they are configured in `scalarSchemas`.
+
+When `nullableWithDefaultNull` is enabled, nullable schemas such as `z.string().nullable()` become `z.string().nullable().default(null)`. Missing or `undefined` nullable input and output fields parse as `null`. Nullable input fields use this default instead of `.optional()`, and explicit GraphQL input defaults take precedence. Non-null types remain unchanged.
 
 When `useTypeScriptEnums` is enabled, each TypeScript enum must be available as a runtime value in the generated module. This is compatible with runtime enums and enum-like `as const` objects, but not type-only enum unions such as those generated with `enumsAsTypes: true`.
 

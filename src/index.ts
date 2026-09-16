@@ -27,6 +27,7 @@ export interface SimpleZodPluginConfig {
   includeRelations?: boolean;
   includeConnectionAndEdgeTypes?: boolean;
   useTypeScriptEnums?: boolean;
+  nullableWithDefaultNull?: boolean;
   scalarSchemas?: Record<string, string>;
 }
 
@@ -38,6 +39,7 @@ interface NormalizedConfig {
   includeRelations: boolean;
   includeConnectionAndEdgeTypes: boolean;
   useTypeScriptEnums: boolean;
+  nullableWithDefaultNull: boolean;
   scalarSchemas: Record<string, string>;
 }
 
@@ -109,6 +111,7 @@ function normalizeConfig(config: SimpleZodPluginConfig | null | undefined): Norm
     includeRelations: config?.includeRelations ?? false,
     includeConnectionAndEdgeTypes: config?.includeConnectionAndEdgeTypes ?? false,
     useTypeScriptEnums: config?.useTypeScriptEnums ?? false,
+    nullableWithDefaultNull: config?.nullableWithDefaultNull ?? false,
     scalarSchemas: config?.scalarSchemas ?? {},
   };
 }
@@ -164,6 +167,7 @@ function assertConfig(
   assertOptionalType(rawConfig, "includeRelations", "boolean");
   assertOptionalType(rawConfig, "includeConnectionAndEdgeTypes", "boolean");
   assertOptionalType(rawConfig, "useTypeScriptEnums", "boolean");
+  assertOptionalType(rawConfig, "nullableWithDefaultNull", "boolean");
 
   if (rawConfig?.scalarSchemas !== undefined && !isPlainObject(rawConfig.scalarSchemas)) {
     throw new Error('"scalarSchemas" must be an object of Zod expressions.');
@@ -265,7 +269,7 @@ function renderListItem(
   config: NormalizedConfig,
 ): string {
   if (isNonNullType(type)) return renderNonNullType(type.ofType, names, config);
-  return `${renderNonNullType(type, names, config)}.nullable()`;
+  return `${renderNonNullType(type, names, config)}.nullable()${config.nullableWithDefaultNull ? ".default(null)" : ""}`;
 }
 
 function renderOutputField(
@@ -273,8 +277,7 @@ function renderOutputField(
   names: ReadonlyMap<string, string>,
   config: NormalizedConfig,
 ): string {
-  if (isNonNullType(type)) return renderNonNullType(type.ofType, names, config);
-  return `${renderNonNullType(type, names, config)}.nullable()`;
+  return renderListItem(type, names, config);
 }
 
 function renderInputField(
@@ -290,6 +293,7 @@ function renderInputField(
   if (field.default !== undefined) {
     return `${schema}.default(${serializeDefault(field)})`;
   }
+  if (!required && config.nullableWithDefaultNull) return `${schema}.default(null)`;
   return required ? schema : `${schema}.optional()`;
 }
 
