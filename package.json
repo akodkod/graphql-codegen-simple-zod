@@ -1,6 +1,6 @@
 {
   "name": "graphql-codegen-simple-zod",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "GraphQL Code Generator plugin that creates Zod schemas from GraphQL types.",
   "keywords": [
     "codegen",
@@ -30,11 +30,13 @@
     "prepare": "vp config"
   },
   "dependencies": {
-    "@graphql-codegen/plugin-helpers": "^7.1.0"
+    "@graphql-codegen/plugin-helpers": "^7.1.0",
+    "@graphql-codegen/visitor-plugin-common": "^7.2.5"
   },
   "devDependencies": {
     "@arethetypeswrong/core": "^0.18.5",
     "@graphql-codegen/core": "^6.2.0",
+    "@graphql-codegen/typescript": "^6.1.0",
     "@types/node": "^26.1.1",
     "graphql": "^17.0.2",
     "publint": "^0.3.23",

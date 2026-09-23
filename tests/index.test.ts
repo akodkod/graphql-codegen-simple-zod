@@ -2,6 +2,8 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
+import * as typescriptPlugin from "@graphql-codegen/typescript";
+import { stripTypeScriptTypes } from "node:module";
 import { codegen } from "@graphql-codegen/core";
 import {
   GraphQLInputObjectType,
@@ -476,4 +478,56 @@ test("runs through GraphQL Codegen core", async () => {
 
   expect(output).toContain("export const UserSchema = z.object({");
   expect(output).toContain('__typename: z.literal("User"),');
+});
+
+describe("TypeScript enum naming integration", () => {
+  const enumSchema = buildSchema(`
+    enum IntegrationHCSSConfigsSortField { NAME CREATED_AT }
+    enum IntegrationHCSSJobsSortField { NAME }
+    enum ticket_status { OPEN CLOSED }
+    type Query { status: ticket_status }
+  `);
+
+  test.each<SimpleZodPluginConfig>([
+    {},
+    { namingConvention: "keep" },
+    { namingConvention: { typeNames: "keep" } },
+    { namingConvention: { enumValues: "keep", transformUnderscore: true } },
+    { namingConvention: (name) => `Custom${name}` },
+  ])("matches TypeScript declarations with %j", async (config) => {
+    const output = await codegen({
+      filename: "schemas.ts",
+      schema: parse(`
+        enum IntegrationHCSSConfigsSortField { NAME CREATED_AT }
+        enum IntegrationHCSSJobsSortField { NAME }
+        enum ticket_status { OPEN CLOSED }
+        type Query { status: ticket_status }
+      `),
+      schemaAst: enumSchema,
+      documents: [],
+      config: { ...config, useTypeScriptEnums: true, enumsAsConst: true },
+      plugins: [{ typescript: {} }, { simpleZod: {} }],
+      pluginMap: { typescript: typescriptPlugin, simpleZod: { plugin, validate } },
+    });
+    const generated = await importGenerated(stripTypeScriptTypes(output));
+    expect(generated.IntegrationHCSSConfigsSortFieldSchema?.parse("CREATED_AT")).toBe("CREATED_AT");
+    expect(generated.IntegrationHCSSJobsSortFieldSchema?.parse("NAME")).toBe("NAME");
+    expect(generated.ticket_statusSchema?.parse("OPEN")).toBe("OPEN");
+    expect(() => generated.IntegrationHCSSConfigsSortFieldSchema?.parse("INVALID")).toThrow();
+    if (Object.keys(config).length === 0) {
+      expect(output).toContain("z.enum(IntegrationHcssConfigsSortField)");
+      expect(output).toContain("z.enum(IntegrationHcssJobsSortField)");
+    }
+  });
+
+  test("checks collisions against converted runtime names", async () => {
+    const collisionSchema = buildSchema(`
+      enum HCSS { VALUE }
+      type Hcss { value: String }
+      type Query { value: Hcss }
+    `);
+    await expect(
+      generate(collisionSchema, { useTypeScriptEnums: true, schemaNameSuffix: "" }),
+    ).rejects.toThrow('Generated schema name "Hcss"');
+  });
 });

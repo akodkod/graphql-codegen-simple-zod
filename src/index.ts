@@ -1,3 +1,4 @@
+import { convertFactory, type NamingConvention } from "@graphql-codegen/visitor-plugin-common";
 import type { PluginFunction, PluginValidateFn } from "@graphql-codegen/plugin-helpers";
 import {
   Kind,
@@ -27,6 +28,7 @@ export interface SimpleZodPluginConfig {
   includeRelations?: boolean;
   includeConnectionAndEdgeTypes?: boolean;
   useTypeScriptEnums?: boolean;
+  namingConvention?: NamingConvention;
   nullableWithDefaultNull?: boolean;
   scalarSchemas?: Record<string, string>;
 }
@@ -39,6 +41,7 @@ interface NormalizedConfig {
   includeRelations: boolean;
   includeConnectionAndEdgeTypes: boolean;
   useTypeScriptEnums: boolean;
+  runtimeEnumName: (name: string) => string;
   nullableWithDefaultNull: boolean;
   scalarSchemas: Record<string, string>;
 }
@@ -104,6 +107,7 @@ const IDENTIFIER_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 
 function normalizeConfig(config: SimpleZodPluginConfig | null | undefined): NormalizedConfig {
   return {
+    runtimeEnumName: convertFactory(config ?? {}),
     schemaNamePrefix: config?.schemaNamePrefix ?? "",
     schemaNameSuffix: config?.schemaNameSuffix ?? "Schema",
     includeTypename: config?.includeTypename ?? false,
@@ -187,7 +191,7 @@ function assertConfig(
     config.useTypeScriptEnums
       ? generatedTypes(schema, config)
           .filter(isEnumType)
-          .map((type) => type.name)
+          .map((type) => config.runtimeEnumName(type.name))
       : [],
   );
 
@@ -390,7 +394,7 @@ function renderField(fieldName: string, expression: string, useGetter: boolean):
 
 function renderEnum(type: GraphQLEnumType, name: string, config: NormalizedConfig): string {
   if (config.useTypeScriptEnums) {
-    return `export const ${name} = z.enum(${type.name});`;
+    return `export const ${name} = z.enum(${config.runtimeEnumName(type.name)});`;
   }
 
   const values = type
